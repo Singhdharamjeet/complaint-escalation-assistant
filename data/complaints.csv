@@ -1,0 +1,29 @@
+complaint_id,customer_id,tier,prior_contacts,complaint_text,expected_escalate,expected_category
+1,C001,standard,0,"My order arrived two days late. Please update me on the next steps.",0,general
+2,C002,standard,0,"I was charged twice for my subscription this month. Please refund the extra amount.",0,billing_dispute
+3,C003,gold,1,"The app keeps crashing when I open the settings page.",0,general
+4,C004,standard,0,"I want to speak to my lawyer about this. I will take legal action if you do not respond.",1,legal_threat
+5,C005,standard,0,"The charger overheated and caught fire last night. This is dangerous!",1,safety_hazard
+6,C006,silver,0,"There is an unauthorized transaction of 12000 on my card. I think it is fraud.",1,fraud_security
+7,C007,standard,4,"This is the third time I am writing. Nobody has fixed my internet and I am still waiting after two weeks.",1,service_failure
+8,C008,vip,0,"I will cancel my subscription and switch to a competitor if this is not fixed today.",1,churn_threat
+9,C009,standard,0,"Thanks, the issue is resolved now. Great support.",0,general
+10,C010,standard,0,"WORST SERVICE EVER!!! I AM FED UP WITH THIS PATHETIC COMPANY!!!",0,abusive_anger
+11,C011,gold,0,"I will post a one-star review on social media and contact the consumer court.",1,legal_threat
+12,C012,standard,0,"I think my personal data was leaked. I will complain to the regulator about this data breach.",1,data_privacy
+13,C013,standard,0,"Just a question: how do I change my billing address?",0,general
+14,C014,standard,0,"The product I received is defective and broken. I want a refund.",0,billing_dispute
+15,C015,silver,2,"No response to my emails for a week. Very disappointing.",0,service_failure
+16,C016,standard,0,"I was overcharged and nobody replied to my complaint. Refund me immediately or I will cancel my account.",1,churn_threat
+17,C017,standard,0,"My phone battery exploded and I was injured. Need urgent help.",1,safety_hazard
+18,C018,standard,0,"Someone hacked my account and stole my card details. This is identity theft.",1,fraud_security
+19,C019,standard,1,"Delivery was delayed again but the driver was polite. Thank you.",0,general
+20,C020,standard,0,"The invoice shows the wrong amount. Please correct it.",0,billing_dispute
+21,C021,vip,3,"This is unacceptable. I have called multiple times and the issue is unresolved. I am taking my business elsewhere.",1,churn_threat
+22,C022,standard,0,"You shared my information with third parties. This is a privacy violation and I will go to the media.",1,data_privacy
+23,C023,standard,0,"Can you send me a copy of my last invoice?",0,general
+24,C024,standard,0,"Terrible experience, the staff was rude.",0,abusive_anger
+25,C025,gold,0,"Service outage for 3 days, still not working. I'm contacting my attorney.",1,legal_threat
+26,C026,standard,0,"I did not get my refund yet. It has been 10 days.",0,billing_dispute
+27,C027,standard,0,"Pls help ASAP, my account is locked and I have a payment due today.",0,general
+28,C028,standard,0,"I was scammed by a fake agent using your company name. Phishing email asked for my password.",1,fraud_security
