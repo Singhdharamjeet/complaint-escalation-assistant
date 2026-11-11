@@ -1,10 +1,12 @@
-import csv
+import sqlite3
+import tempfile
+import traceback
 from pathlib import Path
 
 import pandas as pd
 import streamlit as st
 
-from escalation import EscalationWorkflow, TicketStore
+from escalation import EscalationWorkflow, TicketStore, load_sample_complaints, LoadReport
 from escalation import config as C
 from escalation.workflow import InvalidTransition
 
@@ -17,7 +19,12 @@ st.set_page_config(page_title="Complaint Escalation Assistant", page_icon="🚨"
 
 @st.cache_resource
 def get_workflow():
-    return EscalationWorkflow(TicketStore(str(DB)))
+    for base in (ROOT, Path(tempfile.gettempdir())):
+        try:
+            return EscalationWorkflow(TicketStore(str(DB)))
+        except (sqlite3.Error, OSError):
+            continue
+    return EscalationWorkflow(TicketStore(":memory:"))
 
 
 wf = get_workflow()
@@ -49,6 +56,22 @@ def show_result(r, ticket_id=None):
     for line in r.reasons or ["No risky words found."]:
         st.markdown(f"- {line}")
 
+def show_load_report(rep):
+    if rep.fatal:
+        st.error(rep.summary())
+        if rep.detail:
+            with st.expander("Technical details"):
+                st.code(rep.detail)
+    elif rep.errors:
+        st.warning(rep.summary())
+        with st.expander("Rows that failed"):
+            for line_no, msg in rep.errors:
+                st.markdown(f"- csvline {line_no}: {msg}")
+    elif rep.loaded == 0 and rep.skipped_duplicates:
+        st.infor("All sample complaints are already loaded. Nothing new was added.")
+    else:
+        st.success(rep.summary() + "open the Tickets & Queue tab to see them.")
+
 
 def load_tickets(view):
     q = {
@@ -59,7 +82,7 @@ def load_tickets(view):
         "Resolved / Closed": "SELECT * FROM tickets WHERE status IN ('RESOLVED','CLOSED') ORDER BY updated_at DESC",
         "All tickets": "SELECT * FROM tickets ORDER BY risk_score DESC, created_at",
     }[view]
-    return [dict(r) for r in store.conn.execute(q).fetchall()]
+    return [dict(r) for r in store.query(q)]
  
  #page
 
@@ -88,30 +111,34 @@ with tab_new:
         elif do_preview:
             st.session_state["result"] = (wf.analyzer.analyze(text, int(prior), tier), None)
         else:
-            tid, r = wf.submit_complaint(customer_id.strip() or "UNKNOWN", text, customer_name=customer_name.strip(),
+            try:
+               tid, r = wf.submit_complaint(customer_id.strip() or "UNKNOWN", text, customer_name=customer_name.strip(),
                                          tier=tier, prior_contacts=int(prior))
-            st.session_state["result"] = (r, tid)
+               st.session_state["result"] = (r, tid)
+            except Exception as exc:
+                st.error(f"Could not create the ticket: {exc}")
+
 
     if "result" in st.session_state:
         st.divider()
         show_result(*st.session_state["result"])
 
     st.divider()
-    if st.button("Load the 28 sample complaints"):
-        with open(SAMPLE, newline="", encoding="utf-8") as fh:
-            for row in csv.DictReader(fh):
-                wf.submit_complaint(row["customer_id"], row["complaint_text"], tier=row["tier"],
-                                    prior_contacts=int(row["prior_contacts"]))
-        flash("success", "28 sample complaints added. Open the Tickets & Queue tab.")
-        st.rerun()
-
+    if st.button("Load sample complaints"):
+        with st.sppiner("Loading sample complaints..."):
+            try:
+                st.session_state["load_report"]=load_sample_complaints(wf)
+            except Exception as exc:
+                st.session_state["load_report"] = LoadReport(fatal=f"unexpected error ({type(exc).__name__}: {exc})", detail=traceback.format_exc())
+                if "load_report" in st.session_state:
+                    show_load_report()st.session_state["load_report"]
 #tab2
 with tab_tickets:
-    total = store.conn.execute("SELECT COUNT(*) FROM tickets").fetchone()[0]
+    total = store.scalar("SELECT COUNT(*) FROM tickets")
     senior = len(wf.senior_queue())
-    crit = store.conn.execute("SELECT COUNT(*) FROM tickets WHERE risk_level='CRITICAL' "
-                              "AND status NOT IN ('RESOLVED','CLOSED')").fetchone()[0]
-    done = store.conn.execute("SELECT COUNT(*) FROM tickets WHERE status IN ('RESOLVED','CLOSED')").fetchone()[0]
+    crit = store.scalar("SELECT COUNT(*) FROM tickets WHERE risk_level='CRITICAL' "
+                              "AND status NOT IN ('RESOLVED','CLOSED')")
+    done = store.scalar("SELECT COUNT(*) FROM tickets WHERE status IN ('RESOLVED','CLOSED')").fetchone()[0]
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("Total tickets", total); m2.metric("In senior queue", senior)
     m3.metric("Critical (active)", crit); m4.metric("Resolved / closed", done)
