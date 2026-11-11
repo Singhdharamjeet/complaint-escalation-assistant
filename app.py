@@ -12,7 +12,7 @@ from escalation.workflow import InvalidTransition
 
 ROOT = Path(__file__).parent
 DB = ROOT / "crm.db"
-LEVEL_COLORS = {"CRITICAL": "#f8b4b4", "HIGH": "#fcd9a8", "MEDIUM": "#fdf3b0", "LOW": "#d9f2d9"}
+LEVEL_COLORS = {"CRITICAL": "#c40b0b", "HIGH": "#f2a408", "MEDIUM": "#f4fdb0", "LOW": "#18c418"}
 
 st.set_page_config(page_title="Complaint Escalation Assistant", page_icon="🚨", layout="wide")
 
