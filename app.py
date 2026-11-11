@@ -137,9 +137,8 @@ with tab_tickets:
     total = store.scalar("SELECT COUNT(*) FROM tickets")
     senior = len(wf.senior_queue())
     crit = store.scalar("SELECT COUNT(*) FROM tickets WHERE risk_level='CRITICAL' "
-                              "AND status NOT IN ('RESOLVED','CLOSED')")
+                        "AND status NOT IN ('RESOLVED','CLOSED')")
     done = store.scalar("SELECT COUNT(*) FROM tickets WHERE status IN ('RESOLVED','CLOSED')")
-    done = done.fetchone()[0] if done is not None else 0
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("Total tickets", total); m2.metric("In senior queue", senior)
     m3.metric("Critical (active)", crit); m4.metric("Resolved / closed", done)
