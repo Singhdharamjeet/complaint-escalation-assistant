@@ -12,25 +12,27 @@ from escalation.workflow import InvalidTransition
 
 ROOT = Path(__file__).parent
 DB = ROOT / "crm.db"
-SAMPLE = ROOT / "data" / "complaints.csv"
-LEVEL_COLORS = {"CRITICAL": "#a50808", "HIGH": "#9e6817", "MEDIUM": "#d7e20d9a", "LOW": "#1dde1d"}
+LEVEL_COLORS = {"CRITICAL": "#f8b4b4", "HIGH": "#fcd9a8", "MEDIUM": "#fdf3b0", "LOW": "#d9f2d9"}
 
 st.set_page_config(page_title="Complaint Escalation Assistant", page_icon="🚨", layout="wide")
 
+
 @st.cache_resource
 def get_workflow():
+    """Open the ticket database. If the project folder is read-only (some hosts), fall back to a temp folder."""
     for base in (ROOT, Path(tempfile.gettempdir())):
         try:
-            return EscalationWorkflow(TicketStore(str(DB)))
+            return EscalationWorkflow(TicketStore(str(base / "crm.db")))
         except (sqlite3.Error, OSError):
             continue
-    return EscalationWorkflow(TicketStore(":memory:"))
+    return EscalationWorkflow(TicketStore(":memory:"))   # last resort: works, but data is lost on restart
 
 
 wf = get_workflow()
 store = wf.store
 
-#helpers
+
+# ----------------------------------------------------------------- helpers
 def flash(kind, msg):
     st.session_state["flash"] = (kind, msg)
 
@@ -56,6 +58,7 @@ def show_result(r, ticket_id=None):
     for line in r.reasons or ["No risky words found."]:
         st.markdown(f"- {line}")
 
+
 def show_load_report(rep):
     if rep.fatal:
         st.error(rep.summary())
@@ -66,11 +69,11 @@ def show_load_report(rep):
         st.warning(rep.summary())
         with st.expander("Rows that failed"):
             for line_no, msg in rep.errors:
-                st.markdown(f"- csvline {line_no}: {msg}")
+                st.markdown(f"- CSV line {line_no}: {msg}")
     elif rep.loaded == 0 and rep.skipped_duplicates:
         st.info("All sample complaints are already loaded. Nothing new was added.")
     else:
-        st.success(rep.summary() + "open the Tickets & Queue tab to see them.")
+        st.success(rep.summary() + " Open the Tickets & Queue tab to see them.")
 
 
 def load_tickets(view):
@@ -83,16 +86,16 @@ def load_tickets(view):
         "All tickets": "SELECT * FROM tickets ORDER BY risk_score DESC, created_at",
     }[view]
     return [dict(r) for r in store.query(q)]
- 
- #page
 
+
+# ----------------------------------------------------------------- page
 st.title("🚨 Customer Complaint Escalation Assistant")
 st.caption("Complaint → Risk Analysis → Escalation Flag → Senior Queue → Status Tracking")
 show_flash()
 
 tab_new, tab_tickets = st.tabs(["📝 New Complaint", "🎫 Tickets & Queue"])
 
-#tab1
+# ----------------------------------------------------------------- tab 1
 with tab_new:
     with st.form("complaint_form"):
         c1, c2, c3, c4 = st.columns(4)
@@ -112,12 +115,11 @@ with tab_new:
             st.session_state["result"] = (wf.analyzer.analyze(text, int(prior), tier), None)
         else:
             try:
-               tid, r = wf.submit_complaint(customer_id.strip() or "UNKNOWN", text, customer_name=customer_name.strip(),
-                                         tier=tier, prior_contacts=int(prior))
-               st.session_state["result"] = (r, tid)
+                tid, r = wf.submit_complaint(customer_id.strip() or "UNKNOWN", text, customer_name=customer_name.strip(),
+                                             tier=tier, prior_contacts=int(prior))
+                st.session_state["result"] = (r, tid)
             except Exception as exc:
                 st.error(f"Could not create the ticket: {exc}")
-
 
     if "result" in st.session_state:
         st.divider()
@@ -128,11 +130,13 @@ with tab_new:
         with st.spinner("Loading sample complaints..."):
             try:
                 st.session_state["load_report"] = load_sample_complaints(wf)
-            except Exception as exc:
-                st.session_state["load_report"] = LoadReport(fatal=f"unexpected error ({type(exc).__name__}: {exc})", detail=traceback.format_exc())
-                if "load_report" in st.session_state:
-                    show_load_report(st.session_state["load_report"])
-#tab2
+            except Exception as exc:   # safety net: the loader itself should never raise
+                st.session_state["load_report"] = LoadReport(fatal=f"unexpected error ({type(exc).__name__}: {exc})",
+                                                             detail=traceback.format_exc())
+    if "load_report" in st.session_state:
+        show_load_report(st.session_state["load_report"])
+
+# ----------------------------------------------------------------- tab 2
 with tab_tickets:
     total = store.scalar("SELECT COUNT(*) FROM tickets")
     senior = len(wf.senior_queue())
@@ -155,9 +159,9 @@ with tab_tickets:
         df["Reply due (UTC)"] = df["Reply due (UTC)"].fillna("-").str.replace("T", " ").str.slice(0, 19)
         styled = df.style.apply(lambda col: [f"background-color: {LEVEL_COLORS.get(v, '')}" for v in col], subset=["Risk"])
         try:
-            st.dataframe(styled, hide_index=True, width="stretch")
+            st.dataframe(styled, hide_index=True, width="stretch")          # newer Streamlit
         except TypeError:
-            st.dataframe(styled, hide_index=True, use_container_width=True)
+            st.dataframe(styled, hide_index=True, use_container_width=True)  # older Streamlit
 
         st.subheader("Ticket details")
         ids = [r["ticket_id"] for r in rows]
@@ -207,4 +211,4 @@ with tab_tickets:
                             flash("success", f"Ticket #{tid} is now {new_status}.")
                             st.rerun()
                         except (InvalidTransition, KeyError, ValueError) as e:
-                            st.error(str(e))     
+                            st.error(str(e))
