@@ -68,7 +68,7 @@ def show_load_report(rep):
             for line_no, msg in rep.errors:
                 st.markdown(f"- csvline {line_no}: {msg}")
     elif rep.loaded == 0 and rep.skipped_duplicates:
-        st.infor("All sample complaints are already loaded. Nothing new was added.")
+        st.info("All sample complaints are already loaded. Nothing new was added.")
     else:
         st.success(rep.summary() + "open the Tickets & Queue tab to see them.")
 
@@ -125,20 +125,21 @@ with tab_new:
 
     st.divider()
     if st.button("Load sample complaints"):
-        with st.sppiner("Loading sample complaints..."):
+        with st.spinner("Loading sample complaints..."):
             try:
-                st.session_state["load_report"]=load_sample_complaints(wf)
+                st.session_state["load_report"] = load_sample_complaints(wf)
             except Exception as exc:
                 st.session_state["load_report"] = LoadReport(fatal=f"unexpected error ({type(exc).__name__}: {exc})", detail=traceback.format_exc())
                 if "load_report" in st.session_state:
-                    show_load_report()st.session_state["load_report"]
+                    show_load_report(st.session_state["load_report"])
 #tab2
 with tab_tickets:
     total = store.scalar("SELECT COUNT(*) FROM tickets")
     senior = len(wf.senior_queue())
     crit = store.scalar("SELECT COUNT(*) FROM tickets WHERE risk_level='CRITICAL' "
                               "AND status NOT IN ('RESOLVED','CLOSED')")
-    done = store.scalar("SELECT COUNT(*) FROM tickets WHERE status IN ('RESOLVED','CLOSED')").fetchone()[0]
+    done = store.scalar("SELECT COUNT(*) FROM tickets WHERE status IN ('RESOLVED','CLOSED')")
+    done = done.fetchone()[0] if done is not None else 0
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("Total tickets", total); m2.metric("In senior queue", senior)
     m3.metric("Critical (active)", crit); m4.metric("Resolved / closed", done)
